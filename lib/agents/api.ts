@@ -5,6 +5,7 @@ import { RequirementsType } from "@/lib/schemas/requirements";
 export async function runApiAgent(
   feature: string,
   requirements: RequirementsType,
+  existingApi?: any,
   feedback?: string[]
 ) {
   const completion = await openai.chat.completions.create({
@@ -19,24 +20,28 @@ export async function runApiAgent(
       {
         role: "user",
         content: `
-Feature:
-${feature}
+${existingApi ? `
+Existing API Design:
+${JSON.stringify(existingApi, null, 2)}
+` : ""}
 
-Requirements:
+Updated Requirements:
 ${JSON.stringify(requirements, null, 2)}
 
-Design REST API endpoints for this system.
+New Feature Context:
+${feature}
 
-${
-  feedback?.length
-    ? `
+Modify or extend the API design to support the new requirements and feature.
+Do not remove existing endpoints unless required.
+Maintain backward compatibility.${feedback?.length
+            ? `
 Previous attempt had the following issues:
 ${feedback.join("\n")}
 
 Regenerate the API design fixing these issues.
 `
-    : ""
-}
+            : ""
+          }
 
 Return JSON in this format:
 {

@@ -5,7 +5,16 @@ import { runEvaluatorAgent } from "@/lib/agents/evaluator";
 import { runApiEvaluatorAgent } from "@/lib/agents/api-evaluator";
 import { runTestEvaluatorAgent } from "@/lib/agents/test-evaluator";
 
-export async function orchestrateStream(feature: string) {
+export async function orchestrateStream(
+  feature: string,
+  projectId: string,
+  pipelineRunId: string,
+  existingState?: {
+    requirements?: any;
+    api?: any;
+    tests?: any;
+  }
+) {
   async function* generator() {
     // REQUIREMENTS
     yield ({ agent: "Requirements", status: "running" });
@@ -22,22 +31,26 @@ export async function orchestrateStream(feature: string) {
     const startTime = Date.now();
 
     while (attempts < maxAttempts) {
-        const reqResponse = await runRequirementsAgent(feature, feedback);
+      const reqResponse = await runRequirementsAgent(
+        feature,
+        existingState?.requirements,
+        feedback
+      );
 
-        requirements = reqResponse.data;
-        totalTokens += reqResponse.usage?.total_tokens || 0;
+      requirements = reqResponse.data;
+      totalTokens += reqResponse.usage?.total_tokens || 0;
 
-        const evalResponse = await runEvaluatorAgent(feature, requirements);
+      const evalResponse = await runEvaluatorAgent(feature, requirements);
 
-        evaluation = evalResponse.data;
-        totalTokens += evalResponse.usage?.total_tokens || 0;
+      evaluation = evalResponse.data;
+      totalTokens += evalResponse.usage?.total_tokens || 0;
 
-        if (evaluation.confidence >= threshold) {
-            break;
-        }
+      if (evaluation.confidence >= threshold) {
+        break;
+      }
 
-        feedback = evaluation.suggestions;
-        attempts++;
+      feedback = evaluation.suggestions;
+      attempts++;
     }
     const estimatedCost = (totalTokens / 1000) * 0.001;
     const duration = Date.now() - startTime;
@@ -74,7 +87,12 @@ export async function orchestrateStream(feature: string) {
     const apiStartTime = Date.now();
 
     while (apiAttempts < apiMaxAttempts) {
-      const apiResponse = await runApiAgent(feature, requirements, apiFeedback);
+      const apiResponse = await runApiAgent(
+        feature,
+        requirements,
+        existingState?.api,
+        apiFeedback
+      );
       apiDesign = apiResponse.data;
       apiTotalTokens += apiResponse.usage?.total_tokens || 0;
 
@@ -125,6 +143,7 @@ export async function orchestrateStream(feature: string) {
         feature,
         requirements,
         apiDesign,
+        existingState?.tests,
         testFeedback
       );
       tests = testResponse.data;

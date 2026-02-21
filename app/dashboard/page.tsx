@@ -10,6 +10,7 @@ interface Project {
   id: string;
   name: string;
   description: string | null;
+  runs: any[];
 }
 
 interface Artifact {
@@ -262,39 +263,100 @@ export default function Dashboard() {
         <div className="mt-8">
           <h2 className="text-xl font-bold mb-4">Saved Artifacts</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {artifacts
-              .filter((a, i, arr) => {
-                // Show only latest version of each type
-                return (
-                  arr.findIndex((x) => x.type === a.type) === i
-                );
-              })
-              .map((artifact) => (
+            {["requirements", "api", "tests"].map((type) => {
+              const typeArtifacts = artifacts.filter((a) => a.type === type);
+              if (typeArtifacts.length === 0) return null;
+
+              const sortedArtifacts = typeArtifacts.sort((a, b) => b.version - a.version);
+              const latestVersion = sortedArtifacts[0].version;
+
+              return (
                 <div
-                  key={artifact.id}
-                  className="bg-neutral-900 border border-neutral-800 rounded-xl p-4"
+                  key={type}
+                  className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex flex-col"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-semibold capitalize">
-                      {artifact.type}
+                      {type}
                     </span>
-                    <span className="text-xs text-neutral-500">
-                      v{artifact.version}
-                    </span>
+                    <select
+                      className="text-xs bg-neutral-800 text-white rounded px-2 py-1 outline-none border border-neutral-700"
+                      onChange={(e) => {
+                        const selectedVersion = parseInt(e.target.value, 10);
+                        const selectedArtifact = sortedArtifacts.find(a => a.version === selectedVersion);
+                        if (selectedArtifact) {
+                          setResult({ [type]: selectedArtifact.content });
+                        }
+                      }}
+                      defaultValue={latestVersion}
+                    >
+                      {sortedArtifacts.map((a) => (
+                        <option key={a.id} value={a.version}>
+                          v{a.version}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <p className="text-xs text-neutral-400">
-                    {new Date(artifact.createdAt).toLocaleDateString()}
+                    Latest updated {new Date(sortedArtifacts[0].createdAt).toLocaleDateString()}
                   </p>
                   <button
                     onClick={() => {
-                      setResult({ [artifact.type]: artifact.content });
+                      // Check what is currently selected in the DOM if we wanted perfect sync,
+                      // but for now, clicking 'View' defaults to viewing whatever was just selected
+                      // or the latest version if they haven't touched the dropdown.
+                      const selectEl = document.querySelector(`select[defaultValue="${latestVersion}"]`) as HTMLSelectElement;
+                      const selectedVal = selectEl?.value ? parseInt(selectEl.value, 10) : latestVersion;
+                      const a = sortedArtifacts.find(x => x.version === selectedVal) || sortedArtifacts[0];
+                      setResult({ [type]: a.content });
                     }}
-                    className="mt-3 text-xs text-blue-400 hover:text-blue-300"
+                    className="mt-auto pt-3 text-xs text-blue-400 hover:text-blue-300 text-left"
                   >
-                    View →
+                    View Result →
                   </button>
                 </div>
-              ))}
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Show Pipeline Runs History */}
+      {project.runs && project.runs.length > 0 && (
+        <div className="mt-8 mb-10">
+          <h2 className="text-xl font-bold mb-4">Pipeline History</h2>
+          <div className="space-y-4">
+            {project.runs.map((run) => (
+              <div
+                key={run.id}
+                className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 md:p-6"
+              >
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="font-semibold text-lg">{run.feature}</h3>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${run.status === "completed" ? "bg-green-500/10 text-green-400" :
+                        run.status === "error" ? "bg-red-500/10 text-red-400" :
+                          "bg-blue-500/10 text-blue-400"
+                        }`}>
+                        {run.status}
+                      </span>
+                    </div>
+                    {run.deltaSummary && (
+                      <div className="mt-3 p-3 bg-neutral-950 rounded-lg border border-neutral-800">
+                        <span className="text-xs font-semibold text-neutral-500 uppercase block mb-1">Delta Summary</span>
+                        <p className="text-sm text-neutral-300">{run.deltaSummary}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-right text-xs text-neutral-500 flex flex-col gap-1 min-w-[120px]">
+                    <span>{new Date(run.createdAt).toLocaleString()}</span>
+                    {run.totalDuration && <span>{(run.totalDuration / 1000).toFixed(2)}s</span>}
+                    {run.totalCost && <span>${Number(run.totalCost).toFixed(4)}</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

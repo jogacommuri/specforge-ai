@@ -7,6 +7,7 @@ export async function runTestAgent(
   feature: string,
   requirements: RequirementsType,
   apiDesign: ApiType,
+  existingTests?: any,
   feedback?: string[]
 ) {
   const completion = await openai.chat.completions.create({
@@ -21,27 +22,31 @@ export async function runTestAgent(
       {
         role: "user",
         content: `
-Feature:
+${existingTests ? `
+Existing Tests:
+${JSON.stringify(existingTests, null, 2)}
+` : ""}
+
+New Feature Context:
 ${feature}
 
-Requirements:
+Updated Requirements:
 ${JSON.stringify(requirements, null, 2)}
 
-API Design:
+Updated API Design:
 ${JSON.stringify(apiDesign, null, 2)}
 
-Generate comprehensive test cases. Each test case should be a string description.
-
-${
-  feedback?.length
-    ? `
+Generate comprehensive test cases. Generate new tests for the added functionality while ensuring old tests still remain valid.
+Each array should contain strings (not objects). Each string should be a clear description of the test case.
+${feedback?.length
+            ? `
 Previous attempt had the following issues:
 ${feedback.join("\n")}
 
 Regenerate the test cases fixing these issues.
 `
-    : ""
-}
+            : ""
+          }
 
 Return JSON in this format:
 {

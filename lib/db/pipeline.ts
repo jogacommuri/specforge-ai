@@ -35,6 +35,7 @@ export async function updatePipelineRun(
     totalTokens?: number;
     totalCost?: number;
     confidence?: number;
+    deltaSummary?: string;
   }
 ) {
   return prisma.pipelineRun.update({

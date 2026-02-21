@@ -2,9 +2,10 @@ import { openai } from "@/lib/ai/openai";
 import { RequirementsSchema } from "@/lib/schemas/requirements";
 
 export async function runRequirementsAgent(
-    input: string,
-    feedback?: string[]
-  ) {
+  input: string,
+  existingRequirements?: any,
+  feedback?: string[]
+) {
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     response_format: { type: "json_object" },
@@ -17,24 +18,34 @@ export async function runRequirementsAgent(
       {
         role: "user",
         content: `
-      Break down the following feature into:
+      ${existingRequirements ? `
+      Existing System Requirements:
+      ${JSON.stringify(existingRequirements, null, 2)}
+      ` : ""}
+
+      New Feature:
+      ${input}
+      
+      Update the requirements to incorporate the new feature into the existing system requirements (if any).
+      Do not remove existing valid requirements.
+      Preserve backward compatibility.
+      Avoid duplication.
+      
+      Important:
+      We are updating — not replacing. Break down the features into:
       - functional requirements
       - non-functional requirements
       - assumptions
       
-      Feature:
-      ${input}
-      
-      ${
-        feedback
-          ? `
+      ${feedback
+            ? `
       Previous attempt had the following issues:
       ${feedback.join("\n")}
       
       Regenerate requirements fixing these issues.
       `
-          : ""
-      }
+            : ""
+          }
       
       Return JSON in this format. Each array must contain strings only (not objects):
       {
@@ -49,34 +60,34 @@ export async function runRequirementsAgent(
     ],
   });
 
-    const content = completion.choices[0].message.content;
-    if (!content) throw new Error("No response");
+  const content = completion.choices[0].message.content;
+  if (!content) throw new Error("No response");
 
-    const parsed = JSON.parse(content);
+  const parsed = JSON.parse(content);
 
-    // Normalize in case LLM returns objects instead of strings
-    const normalized = {
-      functional: Array.isArray(parsed.functional)
-        ? parsed.functional.map((item: unknown) => 
-            typeof item === "string" ? item : JSON.stringify(item)
-          )
-        : [],
-      nonFunctional: Array.isArray(parsed.nonFunctional)
-        ? parsed.nonFunctional.map((item: unknown) => 
-            typeof item === "string" ? item : JSON.stringify(item)
-          )
-        : [],
-      assumptions: Array.isArray(parsed.assumptions)
-        ? parsed.assumptions.map((item: unknown) => 
-            typeof item === "string" ? item : JSON.stringify(item)
-          )
-        : [],
-    };
+  // Normalize in case LLM returns objects instead of strings
+  const normalized = {
+    functional: Array.isArray(parsed.functional)
+      ? parsed.functional.map((item: unknown) =>
+        typeof item === "string" ? item : JSON.stringify(item)
+      )
+      : [],
+    nonFunctional: Array.isArray(parsed.nonFunctional)
+      ? parsed.nonFunctional.map((item: unknown) =>
+        typeof item === "string" ? item : JSON.stringify(item)
+      )
+      : [],
+    assumptions: Array.isArray(parsed.assumptions)
+      ? parsed.assumptions.map((item: unknown) =>
+        typeof item === "string" ? item : JSON.stringify(item)
+      )
+      : [],
+  };
 
-    const validated = RequirementsSchema.parse(normalized);
+  const validated = RequirementsSchema.parse(normalized);
 
-    return {
+  return {
     data: validated,
     usage: completion.usage,
-    }
+  }
 }

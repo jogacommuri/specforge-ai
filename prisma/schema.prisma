@@ -49,6 +49,7 @@ model PipelineRun {
   totalTokens   Int?
   totalCost     Decimal? @db.Decimal(10, 6)
   confidence    Decimal? @db.Decimal(3, 2) // Overall confidence score
+  deltaSummary  String?  @db.Text
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
