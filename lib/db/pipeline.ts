@@ -13,12 +13,13 @@ export async function createPipelineRun(
 ): Promise<PipelineRunWithAgents> {
   return prisma.pipelineRun.create({
     data: {
-      userId: input.userId,
+      projectId: input.projectId,
       feature: input.feature,
       status: input.status,
     },
     include: {
       agents: true,
+      project: true,
     },
   });
 }
@@ -33,6 +34,7 @@ export async function updatePipelineRun(
     totalDuration?: number;
     totalTokens?: number;
     totalCost?: number;
+    confidence?: number;
   }
 ) {
   return prisma.pipelineRun.update({
@@ -90,23 +92,25 @@ export async function getPipelineRun(
       agents: {
         orderBy: { createdAt: "asc" },
       },
+      project: true,
     },
   });
 }
 
 /**
- * Get user's pipeline runs
+ * Get project's pipeline runs
  */
-export async function getUserPipelineRuns(
-  userId: string,
+export async function getProjectPipelineRuns(
+  projectId: string,
   limit: number = 20
 ): Promise<PipelineRunWithAgents[]> {
   return prisma.pipelineRun.findMany({
-    where: { userId },
+    where: { projectId },
     include: {
       agents: {
         orderBy: { createdAt: "asc" },
       },
+      project: true,
     },
     orderBy: { createdAt: "desc" },
     take: limit,

@@ -1,13 +1,32 @@
 "use client";
 
-import { useState } from "react";
-import { UserButton, useUser } from "@clerk/nextjs";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import AgentCard from "@/components/AgentCard";
 import PipelineGraph from "@/components/PipelineGraph";
 import { AgentState } from "@/types/agent";
 
+interface Project {
+  id: string;
+  name: string;
+  description: string | null;
+}
+
+interface Artifact {
+  id: string;
+  type: string;
+  version: number;
+  content: any;
+  createdAt: string;
+}
+
 export default function Dashboard() {
-  const { user } = useUser();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const projectId = searchParams.get("projectId");
+
+  const [project, setProject] = useState<Project | null>(null);
+  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [feature, setFeature] = useState("");
   const [agents, setAgents] = useState<AgentState[]>([
     { name: "Requirements", status: "idle" },
@@ -18,8 +37,42 @@ export default function Dashboard() {
     { name: "Test Cases Evaluation", status: "idle" },
   ]);
   const [result, setResult] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!projectId) {
+      router.push("/projects");
+      return;
+    }
+    loadProject();
+  }, [projectId]);
+
+  async function loadProject() {
+    if (!projectId) return;
+    try {
+      const [projectRes, artifactsRes] = await Promise.all([
+        fetch(`/api/projects/${projectId}`),
+        fetch(`/api/projects/${projectId}/artifacts`),
+      ]);
+
+      if (projectRes.ok) {
+        const projectData = await projectRes.json();
+        setProject(projectData);
+      }
+
+      if (artifactsRes.ok) {
+        const artifactsData = await artifactsRes.json();
+        setArtifacts(artifactsData);
+      }
+    } catch (error) {
+      console.error("Error loading project:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function runPipeline() {
+    if (!projectId) return;
     setResult(null);
     // Reset all agents to idle state
     setAgents([
@@ -30,50 +83,50 @@ export default function Dashboard() {
       { name: "Test Cases", status: "idle" },
       { name: "Test Cases Evaluation", status: "idle" },
     ]);
-  
+
     const res = await fetch("/api/orchestrate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ feature }),
+      body: JSON.stringify({ feature, projectId }),
     });
-  
+
     const reader = res.body?.getReader();
     const decoder = new TextDecoder();
-  
+
     if (!reader) return;
-  
+
     let buffer = "";
-  
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-  
+
       buffer += decoder.decode(value);
-  
+
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
-  
+
       for (const line of lines) {
         if (!line.trim()) continue;
-      
+
         const parsed = JSON.parse(line);
-      
+
         setAgents((prev) =>
           prev.map((a) =>
             a.name === parsed.agent
               ? {
-                  ...a,
-                  status: parsed.status,
-                  ...(parsed.duration !== undefined && { duration: parsed.duration }),
-                  ...(parsed.attempts !== undefined && { attempts: parsed.attempts }),
-                  ...(parsed.confidence !== undefined && { confidence: parsed.confidence }),
-                  ...(parsed.tokens !== undefined && { tokens: parsed.tokens }),
-                  ...(parsed.cost !== undefined && { cost: parsed.cost }),
-                }
+                ...a,
+                status: parsed.status,
+                ...(parsed.duration !== undefined && { duration: parsed.duration }),
+                ...(parsed.attempts !== undefined && { attempts: parsed.attempts }),
+                ...(parsed.confidence !== undefined && { confidence: parsed.confidence }),
+                ...(parsed.tokens !== undefined && { tokens: parsed.tokens }),
+                ...(parsed.cost !== undefined && { cost: parsed.cost }),
+              }
               : a
           )
         );
-      
+
         if (parsed.data) {
           setResult((prev: any) => ({
             ...prev,
@@ -92,23 +145,34 @@ export default function Dashboard() {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-neutral-950 text-white flex items-center justify-center">
+        <div className="text-xl">Loading project...</div>
+      </div>
+    );
+  }
+
+  if (!project) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-neutral-950 text-white p-4 md:p-6 lg:p-10">
       <div className="flex items-center justify-between mb-4 md:mb-6">
-        <h1 className="text-3xl md:text-4xl font-bold">SpecForge AI</h1>
-        <div className="flex items-center gap-3">
-          {user && (
-            <span className="text-sm text-neutral-400 hidden sm:inline">
-              {user.emailAddresses[0]?.emailAddress || user.firstName || "User"}
-            </span>
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <button
+              onClick={() => router.push("/projects")}
+              className="text-neutral-400 hover:text-white text-sm"
+            >
+              ← Projects
+            </button>
+          </div>
+          <h1 className="text-3xl md:text-4xl font-bold">{project.name}</h1>
+          {project.description && (
+            <p className="text-neutral-400 mt-1">{project.description}</p>
           )}
-          <UserButton
-            appearance={{
-              elements: {
-                avatarBox: "w-8 h-8",
-              },
-            }}
-          />
         </div>
       </div>
 
@@ -191,6 +255,48 @@ export default function Dashboard() {
         <pre className="bg-neutral-900 p-6 rounded-xl overflow-x-auto">
           {JSON.stringify(result, null, 2)}
         </pre>
+      )}
+
+      {/* Show saved artifacts */}
+      {artifacts.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-xl font-bold mb-4">Saved Artifacts</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {artifacts
+              .filter((a, i, arr) => {
+                // Show only latest version of each type
+                return (
+                  arr.findIndex((x) => x.type === a.type) === i
+                );
+              })
+              .map((artifact) => (
+                <div
+                  key={artifact.id}
+                  className="bg-neutral-900 border border-neutral-800 rounded-xl p-4"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold capitalize">
+                      {artifact.type}
+                    </span>
+                    <span className="text-xs text-neutral-500">
+                      v{artifact.version}
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-400">
+                    {new Date(artifact.createdAt).toLocaleDateString()}
+                  </p>
+                  <button
+                    onClick={() => {
+                      setResult({ [artifact.type]: artifact.content });
+                    }}
+                    className="mt-3 text-xs text-blue-400 hover:text-blue-300"
+                  >
+                    View →
+                  </button>
+                </div>
+              ))}
+          </div>
+        </div>
       )}
     </div>
   );

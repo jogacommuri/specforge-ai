@@ -9,27 +9,58 @@ datasource db {
   provider = "postgresql"
 }
 
-// Pipeline runs table
-model PipelineRun {
-  id            String   @id @default(cuid())
-  userId        String   // Clerk user ID
-  feature       String   @db.Text
-  status        String   // "running" | "completed" | "error"
-  totalDuration Int?     // milliseconds
-  totalTokens   Int?
-  totalCost     Decimal? @db.Decimal(10, 6)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  agents PipelineAgent[]
+// Projects belong to users
+model Project {
+  id          String       @id @default(uuid())
+  name        String
+  description String?      @db.Text
+  userId      String       // Clerk user ID
+  artifacts   Artifact[]
+  runs        PipelineRun[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   @@index([userId])
   @@index([createdAt])
 }
 
+// Artifacts store generated outputs (requirements, API design, tests)
+model Artifact {
+  id        String   @id @default(uuid())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  type      String   // "requirements" | "api" | "tests"
+  version   Int      @default(1)
+  content   Json     // Store the actual artifact data
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+  @@index([projectId, type, version])
+}
+
+// Pipeline runs belong to projects
+model PipelineRun {
+  id            String   @id @default(uuid())
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId     String
+  feature       String   @db.Text
+  status        String   // "running" | "completed" | "error"
+  totalDuration Int?     // milliseconds
+  totalTokens   Int?
+  totalCost     Decimal? @db.Decimal(10, 6)
+  confidence    Decimal? @db.Decimal(3, 2) // Overall confidence score
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  agents PipelineAgent[]
+
+  @@index([projectId])
+  @@index([createdAt])
+}
+
 // Individual agent execution records
 model PipelineAgent {
-  id            String      @id @default(cuid())
+  id            String      @id @default(uuid())
   pipelineRunId String
   name          String      // "Requirements", "API Design", etc.
   status        String      // "idle" | "running" | "completed" | "error"

@@ -12,10 +12,10 @@ export default function Home() {
         <div className="mt-8">
           <SignedIn>
             <Link
-              href="/dashboard"
+              href="/projects"
               className="inline-block bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-xl font-medium transition-colors"
             >
-              Go to Dashboard
+              Go to Projects
             </Link>
           </SignedIn>
           <SignedOut>
