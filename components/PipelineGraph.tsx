@@ -33,12 +33,12 @@ export default function PipelineGraph({ agents }: Props) {
   );
 
   return (
-    <div className="mb-8 p-5 bg-neutral-900 border border-neutral-800 rounded-xl">
-      <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-4">
+    <div className="mb-6 md:mb-8 p-4 md:p-5 bg-neutral-900 border border-neutral-800 rounded-xl">
+      <h2 className="text-xs md:text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-4">
         Pipeline Visualization
       </h2>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Token Usage Bar Chart */}
         <div>
           <h3 className="text-sm font-medium text-neutral-300 mb-3">

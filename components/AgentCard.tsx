@@ -15,8 +15,8 @@ export default function AgentCard({ agent }: Props) {
   };
 
   return (
-    <div className="border border-neutral-800 rounded-xl p-4 bg-neutral-900 min-w-[200px]">
-        <h3 className="font-semibold mb-2">{agent.name}</h3>
+    <div className="border border-neutral-800 rounded-xl p-3 md:p-4 bg-neutral-900 min-w-[160px] md:min-w-[180px] flex-shrink-0">
+        <h3 className="font-semibold mb-2 text-sm md:text-base leading-tight">{agent.name}</h3>
 
         <div
             className={`text-sm px-3 py-1 rounded-md inline-block ${statusColors[agent.status]}`}

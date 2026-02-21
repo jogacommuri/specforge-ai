@@ -64,3 +64,6 @@ logs
 *.tmp
 *.temp
 .cache/
+
+# clerk configuration (can include secrets)
+/.clerk/

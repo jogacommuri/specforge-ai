@@ -178,11 +178,71 @@ npm install
 npm run dev
 ```
 
-Create `.env.local`:
+Create `.env.local` (see `.env.example` for template):
 
 ```
 OPENAI_API_KEY=your_key_here
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+CLERK_SECRET_KEY=your_clerk_secret_key
+DATABASE_URL=postgresql://user:password@host:5432/database
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
+
+### Setting up Clerk Authentication
+
+1. Create a free account at [clerk.com](https://clerk.com)
+2. Create a new application
+3. Copy your **Publishable Key** and **Secret Key** from the Clerk dashboard
+4. Add them to your `.env.local` file as shown above
+5. Configure your application URL in Clerk dashboard:
+   - Development: `http://localhost:3000`
+   - Add `/api/webhooks/clerk` as a webhook endpoint (if using webhooks)
+
+The application will automatically:
+- Protect `/dashboard` routes (requires authentication)
+- Allow public access to `/` (home page)
+- Provide sign-in/sign-up pages at `/sign-in` and `/sign-up`
+
+### Setting up Supabase + Prisma
+
+1. **Create a Supabase project:**
+   - Go to [supabase.com](https://supabase.com) and create a free account
+   - Create a new project
+   - Wait for the database to be provisioned
+
+2. **Get your database connection string:**
+   - Go to Project Settings → Database
+   - Copy the **Connection string** (URI format)
+   - Use the format: `postgresql://postgres:[YOUR-PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres`
+   - Add it to `.env.local` as `DATABASE_URL`
+
+3. **Get your Supabase API keys:**
+   - Go to Project Settings → API
+   - Copy the **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
+   - Copy the **anon/public key** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - Add both to `.env.local`
+
+4. **Set up the database schema:**
+   ```bash
+   # Generate Prisma Client
+   npm run db:generate
+
+   # Push schema to database (for development)
+   npm run db:push
+
+   # Or create a migration (for production)
+   npm run db:migrate
+   ```
+
+5. **Optional: Open Prisma Studio to view data:**
+   ```bash
+   npm run db:studio
+   ```
+
+The database schema includes:
+- `PipelineRun` - Stores each pipeline execution with metadata
+- `PipelineAgent` - Stores individual agent execution details per run
 
 ## 👨‍💻 Author
 

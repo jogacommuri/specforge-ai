@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { UserButton, useUser } from "@clerk/nextjs";
 import AgentCard from "@/components/AgentCard";
 import PipelineGraph from "@/components/PipelineGraph";
 import { AgentState } from "@/types/agent";
 
 export default function Dashboard() {
+  const { user } = useUser();
   const [feature, setFeature] = useState("");
   const [agents, setAgents] = useState<AgentState[]>([
     { name: "Requirements", status: "idle" },
@@ -91,30 +93,46 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white p-10">
-      <h1 className="text-4xl font-bold mb-6">SpecForge AI</h1>
+    <div className="min-h-screen bg-neutral-950 text-white p-4 md:p-6 lg:p-10">
+      <div className="flex items-center justify-between mb-4 md:mb-6">
+        <h1 className="text-3xl md:text-4xl font-bold">SpecForge AI</h1>
+        <div className="flex items-center gap-3">
+          {user && (
+            <span className="text-sm text-neutral-400 hidden sm:inline">
+              {user.emailAddresses[0]?.emailAddress || user.firstName || "User"}
+            </span>
+          )}
+          <UserButton
+            appearance={{
+              elements: {
+                avatarBox: "w-8 h-8",
+              },
+            }}
+          />
+        </div>
+      </div>
 
       <textarea
         value={feature}
         onChange={(e) => setFeature(e.target.value)}
         placeholder="Describe your feature..."
-        className="w-full p-4 bg-neutral-900 border border-neutral-800 rounded-xl mb-6"
+        className="w-full p-3 md:p-4 bg-neutral-900 border border-neutral-800 rounded-xl mb-4 md:mb-6"
       />
 
       <button
         onClick={runPipeline}
-        className="bg-blue-600 px-6 py-2 rounded-xl mb-8"
+        className="bg-blue-600 px-4 md:px-6 py-2 rounded-xl mb-6 md:mb-8"
       >
         Run Agents
       </button>
 
       {agents.some((a) => a.status !== "idle") && (
         <>
-          <div className="mb-8 p-5 bg-neutral-900 border border-neutral-800 rounded-xl">
-            <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-3">
+          <div className="mb-6 md:mb-8 p-4 md:p-5 bg-neutral-900 border border-neutral-800 rounded-xl">
+            <h2 className="text-xs md:text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-3">
               Total pipeline execution summary
             </h2>
-            <div className="flex flex-wrap items-center gap-6">
+            <div className="flex flex-wrap items-center gap-4 md:gap-6">
               <div>
                 <span className="text-neutral-500 text-sm">Status</span>
                 <p className="font-medium">
@@ -154,17 +172,19 @@ export default function Dashboard() {
         </>
       )}
 
-      <div className="flex items-center gap-6 mb-10">
-        {agents.map((agent, index) => (
+      <div className="overflow-x-auto mb-6 md:mb-10">
+        <div className="flex items-center gap-2 md:gap-3 min-w-max">
+          {agents.map((agent, index) => (
             <div key={index} className="flex items-center">
-            <AgentCard agent={agent} />
-            {index < agents.length - 1 && (
-                <div className="mx-4 text-blue-400 animate-pulse">
-                →
+              <AgentCard agent={agent} />
+              {index < agents.length - 1 && (
+                <div className="mx-1 md:mx-2 text-blue-400 animate-pulse text-sm md:text-base">
+                  →
                 </div>
-            )}
+              )}
             </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       {result && (

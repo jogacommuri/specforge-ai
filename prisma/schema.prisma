@@ -1,0 +1,48 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Pipeline runs table
+model PipelineRun {
+  id            String   @id @default(cuid())
+  userId        String   // Clerk user ID
+  feature       String   @db.Text
+  status        String   // "running" | "completed" | "error"
+  totalDuration Int?     // milliseconds
+  totalTokens   Int?
+  totalCost     Decimal? @db.Decimal(10, 6)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  agents PipelineAgent[]
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// Individual agent execution records
+model PipelineAgent {
+  id            String      @id @default(cuid())
+  pipelineRunId String
+  name          String      // "Requirements", "API Design", etc.
+  status        String      // "idle" | "running" | "completed" | "error"
+  duration      Int?        // milliseconds
+  confidence    Decimal?    @db.Decimal(3, 2) // 0.00 to 1.00
+  attempts      Int?
+  tokens        Int?
+  cost          Decimal?    @db.Decimal(10, 6)
+  data          Json?       // Store agent output data
+  createdAt     DateTime    @default(now())
+
+  pipelineRun PipelineRun @relation(fields: [pipelineRunId], references: [id], onDelete: Cascade)
+
+  @@unique([pipelineRunId, name]) // Ensure one agent per name per run
+  @@index([pipelineRunId])
+}
