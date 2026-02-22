@@ -8,6 +8,7 @@ export type ProjectWithRelations = Project & {
 export type PipelineRunWithAgents = PipelineRun & {
   agents: PipelineAgent[];
   project: Project;
+  deltaSummary?: string | null;
 };
 
 export type CreateProjectInput = {

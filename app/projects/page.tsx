@@ -94,7 +94,7 @@ export default function ProjectsPage() {
               {projects.map((project) => (
                 <div
                   key={project.id}
-                  onClick={() => router.push(`/dashboard?projectId=${project.id}`)}
+                  onClick={() => router.push(`/project/${project.id}`)}
                   className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 cursor-pointer hover:border-blue-600 transition-colors"
                 >
                   <h3 className="text-xl font-semibold mb-2">{project.name}</h3>

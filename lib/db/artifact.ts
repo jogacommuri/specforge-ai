@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
-import { CreateArtifactInput, Artifact } from "./types";
+import { CreateArtifactInput } from "./types";
+import { Artifact } from "@prisma/client";
 
 /**
  * Create a new artifact

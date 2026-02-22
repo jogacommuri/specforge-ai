@@ -34,6 +34,7 @@ export async function getProject(
           agents: {
             orderBy: { createdAt: "asc" },
           },
+          project: true,
         },
         orderBy: { createdAt: "desc" },
       },
