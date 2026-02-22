@@ -44,7 +44,7 @@ export async function getArtifact(id: string): Promise<Artifact | null> {
  */
 export async function getLatestArtifact(
   projectId: string,
-  type: "requirements" | "api" | "tests"
+  type: "requirements" | "architecture" | "ui" | "api" | "tests"
 ): Promise<Artifact | null> {
   return prisma.artifact.findFirst({
     where: {
@@ -75,7 +75,7 @@ export async function getProjectArtifacts(
  */
 export async function getArtifactHistory(
   projectId: string,
-  type: "requirements" | "api" | "tests"
+  type: "requirements" | "architecture" | "ui" | "api" | "tests"
 ): Promise<Artifact[]> {
   return prisma.artifact.findMany({
     where: {

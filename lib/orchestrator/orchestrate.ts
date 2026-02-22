@@ -1,7 +1,10 @@
 import { runRequirementsAgent } from "@/lib/agents/requirements";
+import { runArchitectureAgent } from "@/lib/agents/architecture";
 import { runApiAgent } from "@/lib/agents/api";
 import { runTestAgent } from "@/lib/agents/test";
 import { runEvaluatorAgent } from "@/lib/agents/evaluator";
+import { runUiDesignAgent } from "@/lib/agents/ui";
+import { runUiEvaluatorAgent } from "@/lib/agents/ui-evaluator";
 import { runApiEvaluatorAgent } from "@/lib/agents/api-evaluator";
 import { runTestEvaluatorAgent } from "@/lib/agents/test-evaluator";
 
@@ -11,6 +14,8 @@ export async function orchestrateStream(
   pipelineRunId: string,
   existingState?: {
     requirements?: any;
+    architecture?: any;
+    ui?: any;
     api?: any;
     tests?: any;
   }
@@ -75,6 +80,110 @@ export async function orchestrateStream(
 
     if (!requirements) throw new Error("Requirements not generated");
 
+    // ARCHITECTURE DESIGN (with retry, confidence, tokens, cost)
+    yield ({ agent: "Architecture", status: "running" });
+    let archAttempts = 0;
+    const archMaxAttempts = 2;
+    const archThreshold = 0.75;
+    let archTotalTokens = 0;
+    let architecture;
+    let archEvaluation;
+    let archFeedback: string[] | undefined;
+    const archStartTime = Date.now();
+
+    while (archAttempts < archMaxAttempts) {
+      const archResponse = await runArchitectureAgent(
+        requirements,
+        existingState?.architecture,
+        archFeedback
+      );
+      architecture = archResponse.data;
+      archTotalTokens += archResponse.usage?.total_tokens || 0;
+
+      const archEvalResponse = await runEvaluatorAgent(feature, architecture);
+      archEvaluation = archEvalResponse.data;
+      archTotalTokens += archEvalResponse.usage?.total_tokens || 0;
+
+      if (archEvaluation.confidence >= archThreshold) break;
+      archFeedback = archEvaluation.suggestions;
+      archAttempts++;
+    }
+    const archDuration = Date.now() - archStartTime;
+    const archCost = (archTotalTokens / 1000) * 0.001;
+
+    yield ({
+      agent: "Architecture",
+      status: "completed",
+      duration: archDuration,
+      confidence: archEvaluation?.confidence,
+      attempts: archAttempts + 1,
+      tokens: archTotalTokens,
+      cost: archCost.toFixed(3),
+      data: architecture,
+    });
+
+    yield ({
+      agent: "Architecture Evaluation",
+      status: "completed",
+      confidence: archEvaluation?.confidence,
+      data: archEvaluation,
+    });
+
+    if (!architecture) throw new Error("Architecture not generated");
+
+    // UI DESIGN (with retry, confidence, tokens, cost)
+    yield ({ agent: "UI Design", status: "running" });
+    let uiAttempts = 0;
+    const uiMaxAttempts = 2;
+    const uiThreshold = 0.75;
+    let uiTotalTokens = 0;
+    let uiDesign;
+    let uiEvaluation;
+    let uiFeedback: string[] | undefined;
+    const uiStartTime = Date.now();
+
+    while (uiAttempts < uiMaxAttempts) {
+      const uiResponse = await runUiDesignAgent(
+        feature,
+        requirements,
+        architecture,
+        existingState?.ui,
+        uiFeedback
+      );
+      uiDesign = uiResponse.data;
+      uiTotalTokens += uiResponse.usage?.total_tokens || 0;
+
+      const uiEvalResponse = await runUiEvaluatorAgent(feature, requirements, architecture, uiDesign);
+      uiEvaluation = uiEvalResponse.data;
+      uiTotalTokens += uiEvalResponse.usage?.total_tokens || 0;
+
+      if (uiEvaluation.confidence >= uiThreshold) break;
+      uiFeedback = uiEvaluation.suggestions;
+      uiAttempts++;
+    }
+    const uiDuration = Date.now() - uiStartTime;
+    const uiCost = (uiTotalTokens / 1000) * 0.001;
+
+    yield ({
+      agent: "UI Design",
+      status: "completed",
+      duration: uiDuration,
+      confidence: uiEvaluation?.confidence,
+      attempts: uiAttempts + 1,
+      tokens: uiTotalTokens,
+      cost: uiCost.toFixed(3),
+      data: uiDesign,
+    });
+
+    yield ({
+      agent: "UI Design Evaluation",
+      status: "completed",
+      confidence: uiEvaluation?.confidence,
+      data: uiEvaluation,
+    });
+
+    if (!uiDesign) throw new Error("UI Design not generated");
+
     // API DESIGN (with retry, confidence, tokens, cost)
     yield ({ agent: "API Design", status: "running" });
     let apiAttempts = 0;
@@ -90,6 +199,8 @@ export async function orchestrateStream(
       const apiResponse = await runApiAgent(
         feature,
         requirements,
+        architecture,
+        uiDesign,
         existingState?.api,
         apiFeedback
       );
@@ -142,6 +253,8 @@ export async function orchestrateStream(
       const testResponse = await runTestAgent(
         feature,
         requirements,
+        architecture,
+        uiDesign,
         apiDesign,
         existingState?.tests,
         testFeedback

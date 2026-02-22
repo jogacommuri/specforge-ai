@@ -19,7 +19,7 @@ export type CreateProjectInput = {
 
 export type CreateArtifactInput = {
   projectId: string;
-  type: "requirements" | "api" | "tests";
+  type: "requirements" | "architecture" | "ui" | "api" | "tests";
   content: any;
   version?: number;
 };

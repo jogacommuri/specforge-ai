@@ -32,14 +32,18 @@ export async function POST(req: NextRequest) {
     }
 
     // Get latest artifacts for incremental evolution
-    const [latestRequirements, latestApi, latestTests] = await Promise.all([
+    const [latestRequirements, latestArchitecture, latestUi, latestApi, latestTests] = await Promise.all([
       getLatestArtifact(projectId, "requirements"),
+      getLatestArtifact(projectId, "architecture"),
+      getLatestArtifact(projectId, "ui"),
       getLatestArtifact(projectId, "api"),
       getLatestArtifact(projectId, "tests")
     ]);
 
     const existingState = {
       requirements: latestRequirements?.content,
+      architecture: latestArchitecture?.content,
+      ui: latestUi?.content,
       api: latestApi?.content,
       tests: latestTests?.content,
     };
@@ -82,6 +86,10 @@ export async function POST(req: NextRequest) {
             const agentName = chunk.agent;
             if (agentName === "Requirements" && chunk.data) {
               artifacts.requirements = chunk.data;
+            } else if (agentName === "Architecture" && chunk.data) {
+              artifacts.architecture = chunk.data;
+            } else if (agentName === "UI Design" && chunk.data) {
+              artifacts.ui = chunk.data;
             } else if (agentName === "API Design" && chunk.data) {
               artifacts.api = chunk.data;
             } else if (agentName === "Test Cases" && chunk.data) {
@@ -138,6 +146,20 @@ export async function POST(req: NextRequest) {
             projectId,
             type: "requirements",
             content: artifacts.requirements,
+          });
+        }
+        if (artifacts.architecture) {
+          await createArtifact({
+            projectId,
+            type: "architecture",
+            content: artifacts.architecture,
+          });
+        }
+        if (artifacts.ui) {
+          await createArtifact({
+            projectId,
+            type: "ui",
+            content: artifacts.ui,
           });
         }
         if (artifacts.api) {

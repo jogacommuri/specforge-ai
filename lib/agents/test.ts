@@ -6,6 +6,8 @@ import { ApiType } from "@/lib/schemas/api";
 export async function runTestAgent(
   feature: string,
   requirements: RequirementsType,
+  architecture: any,
+  uiDesign: any,
   apiDesign: ApiType,
   existingTests?: any,
   feedback?: string[]
@@ -32,6 +34,12 @@ ${feature}
 
 Updated Requirements:
 ${JSON.stringify(requirements, null, 2)}
+
+System Architecture:
+${JSON.stringify(architecture, null, 2)}
+
+UI Design Context:
+${JSON.stringify(uiDesign, null, 2)}
 
 Updated API Design:
 ${JSON.stringify(apiDesign, null, 2)}

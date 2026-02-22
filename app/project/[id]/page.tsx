@@ -23,6 +23,10 @@ export default function ProjectPage() {
     const [agents, setAgents] = useState<AgentState[]>([
         { name: "Requirements", status: "idle" },
         { name: "Requirements Evaluation", status: "idle" },
+        { name: "Architecture", status: "idle" },
+        { name: "Architecture Evaluation", status: "idle" },
+        { name: "UI Design", status: "idle" },
+        { name: "UI Design Evaluation", status: "idle" },
         { name: "API Design", status: "idle" },
         { name: "API Design Evaluation", status: "idle" },
         { name: "Test Cases", status: "idle" },
@@ -146,12 +150,32 @@ export default function ProjectPage() {
 
     return (
         <div className="min-h-screen bg-neutral-950 text-white p-4 md:p-6 lg:p-10 max-w-7xl mx-auto">
-            <button
-                onClick={() => router.push("/projects")}
-                className="text-neutral-400 hover:text-white text-sm mb-6 flex items-center gap-2 transition"
-            >
-                ← Back to Projects
-            </button>
+            <div className="flex justify-between items-center mb-6">
+                <button
+                    onClick={() => router.push("/projects")}
+                    className="text-neutral-400 hover:text-white text-sm flex items-center gap-2 transition"
+                >
+                    ← Back to Projects
+                </button>
+                <button
+                    onClick={async () => {
+                        if (window.confirm("Are you sure you want to delete this project? This will permanently delete all associated artifacts and pipeline runs.")) {
+                            try {
+                                const res = await fetch(`/api/projects/${projectId}`, { method: "DELETE" });
+                                if (res.ok) {
+                                    router.push("/projects");
+                                }
+                            } catch (e) {
+                                console.error("Error deleting project:", e);
+                            }
+                        }
+                    }}
+                    className="text-neutral-500 hover:text-red-500 text-sm flex items-center gap-2 transition"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    Delete Project
+                </button>
+            </div>
 
             <ProjectHeader
                 project={project}
