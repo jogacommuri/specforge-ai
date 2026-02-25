@@ -19,11 +19,57 @@ export default function ArtifactTabs({ artifacts, activeVersion, onChangeVersion
     const [activeTab, setActiveTab] = useState<"requirements" | "architecture" | "ui" | "api" | "tests">("requirements");
     const [showRawJson, setShowRawJson] = useState(false);
 
+    // Jira Export State
+    const [isExporting, setIsExporting] = useState(false);
+    const [exportError, setExportError] = useState<string | null>(null);
+    const [jiraBaseUrl, setJiraBaseUrl] = useState("");
+    const [jiraEmail, setJiraEmail] = useState("");
+    const [jiraToken, setJiraToken] = useState("");
+    const [jiraIssueKey, setJiraIssueKey] = useState("");
+    const [showExportModal, setShowExportModal] = useState(false);
+
     const latestOfActiveTab = artifacts
         .filter((a) => a.type === activeTab && a.version === activeVersion)[0];
 
     const handleCopy = (text: string) => {
         navigator.clipboard.writeText(text);
+    };
+
+    const handleJiraExport = async () => {
+        if (!jiraBaseUrl || !jiraEmail || !jiraToken || !jiraIssueKey) {
+            setExportError("All Jira fields are required.");
+            return;
+        }
+
+        setIsExporting(true);
+        setExportError(null);
+
+        try {
+            const res = await fetch("/api/jira/export", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    baseUrl: jiraBaseUrl.trim(),
+                    email: jiraEmail.trim(),
+                    apiToken: jiraToken.trim(),
+                    issueKey: jiraIssueKey.trim(),
+                    testCases: latestOfActiveTab?.content // Sending the actual artifact content
+                })
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || "Failed to push to Jira.");
+            }
+
+            // Success, close modal
+            setShowExportModal(false);
+            alert("Tests successfully pushed to Jira as a comment!");
+        } catch (e: any) {
+            setExportError(e.message);
+        } finally {
+            setIsExporting(false);
+        }
     };
 
     const renderContent = () => {
@@ -354,6 +400,47 @@ export default function ArtifactTabs({ artifacts, activeVersion, onChangeVersion
         if (activeTab === "tests") {
             return (
                 <div className="space-y-6">
+                    <div className="flex justify-between items-center mb-6 border-b border-neutral-800 pb-4">
+                        <h2 className="text-xl font-bold text-white">Generated Test Cases</h2>
+
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowExportModal(!showExportModal)}
+                                className="px-3 py-1.5 bg-[#0052CC]/10 hover:bg-[#0052CC]/20 text-[#2684FF] border border-[#0052CC]/30 rounded-lg text-sm font-medium transition flex items-center gap-2"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                                Push to Jira
+                            </button>
+
+                            {showExportModal && (
+                                <div className="absolute right-0 mt-2 w-80 p-4 bg-neutral-900 border border-neutral-700 rounded-xl shadow-xl z-50">
+                                    <h4 className="text-sm font-bold text-neutral-300 mb-3">Jira Sync (MVP)</h4>
+                                    <div className="space-y-3">
+                                        <div>
+                                            <input type="text" placeholder="Workspace URL (https://...)" value={jiraBaseUrl} onChange={e => setJiraBaseUrl(e.target.value)} className="w-full text-xs p-2 bg-neutral-950 border border-neutral-800 rounded focus:border-[#2684FF] outline-none" />
+                                        </div>
+                                        <div>
+                                            <input type="email" placeholder="Email" value={jiraEmail} onChange={e => setJiraEmail(e.target.value)} className="w-full text-xs p-2 bg-neutral-950 border border-neutral-800 rounded focus:border-[#2684FF] outline-none" />
+                                        </div>
+                                        <div>
+                                            <input type="password" placeholder="API Token" value={jiraToken} onChange={e => setJiraToken(e.target.value)} className="w-full text-xs p-2 bg-neutral-950 border border-neutral-800 rounded focus:border-[#2684FF] outline-none" />
+                                        </div>
+                                        <div>
+                                            <input type="text" placeholder="Issue Key (PROJ-123)" value={jiraIssueKey} onChange={e => setJiraIssueKey(e.target.value)} className="w-full text-xs p-2 bg-neutral-950 border border-neutral-800 rounded focus:border-[#2684FF] outline-none" />
+                                        </div>
+                                        {exportError && <p className="text-xs text-red-500">{exportError}</p>}
+                                        <div className="flex justify-end gap-2 mt-4">
+                                            <button onClick={() => setShowExportModal(false)} className="text-xs text-neutral-400 hover:text-white px-2 py-1">Cancel</button>
+                                            <button onClick={handleJiraExport} disabled={isExporting} className="bg-[#0052CC] hover:bg-[#0052CC]/80 text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-50 transition">
+                                                {isExporting ? "Pushing..." : "Confirm Push"}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
                     {content.happyPath && content.happyPath.length > 0 && (
                         <div>
                             <h3 className="text-lg font-semibold text-green-400 mb-3 flex items-center gap-2">
