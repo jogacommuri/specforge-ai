@@ -9,6 +9,8 @@ export type PipelineRunWithAgents = PipelineRun & {
   agents: PipelineAgent[];
   project: Project;
   deltaSummary?: string | null;
+  currentStage?: string | null;
+  error?: string | null;
 };
 
 export type CreateProjectInput = {

@@ -50,6 +50,8 @@ model PipelineRun {
   totalCost     Decimal? @db.Decimal(10, 6)
   confidence    Decimal? @db.Decimal(3, 2) // Overall confidence score
   deltaSummary  String?  @db.Text
+  currentStage  String?
+  error         String?  @db.Text
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -71,6 +73,7 @@ model PipelineAgent {
   tokens        Int?
   cost          Decimal?    @db.Decimal(10, 6)
   data          Json?       // Store agent output data
+  error         String?     @db.Text
   createdAt     DateTime    @default(now())
 
   pipelineRun PipelineRun @relation(fields: [pipelineRunId], references: [id], onDelete: Cascade)

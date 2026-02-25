@@ -51,7 +51,32 @@ export default function ProjectPage() {
             ]);
 
             if (projectRes.ok) {
-                setProject(await projectRes.json());
+                const projectData = await projectRes.json();
+                setProject(projectData);
+
+                // Hydrate agents state from the most recent run so the Graph persists across reloads
+                if (projectData.runs && projectData.runs.length > 0) {
+                    const latestRun = projectData.runs[0];
+                    if (latestRun.agents && latestRun.agents.length > 0) {
+                        setAgents(prevAgents => prevAgents.map(a => {
+                            // Find matching agent in DB
+                            // The agent names in the DB match exactly (e.g. "Requirements", "Requirements Evaluation")
+                            const dbAgent = latestRun.agents.find((dbA: any) => dbA.name === a.name);
+                            if (dbAgent) {
+                                return {
+                                    ...a,
+                                    status: dbAgent.status,
+                                    duration: dbAgent.duration,
+                                    attempts: dbAgent.attempts,
+                                    tokens: dbAgent.tokens,
+                                    cost: dbAgent.cost,
+                                    confidence: dbAgent.confidence
+                                };
+                            }
+                            return a;
+                        }));
+                    }
+                }
             }
 
             if (artifactsRes.ok) {
@@ -82,6 +107,69 @@ export default function ProjectPage() {
                     feature: `${tags.length > 0 ? `[${tags.join(", ")}] ` : ""}${feature}`,
                     projectId
                 }),
+            });
+
+            const reader = res.body?.getReader();
+            const decoder = new TextDecoder();
+
+            if (!reader) return;
+
+            let buffer = "";
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value);
+                const lines = buffer.split("\n");
+                buffer = lines.pop() || "";
+
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+
+                    try {
+                        const parsed = JSON.parse(line);
+                        setAgents((prev) =>
+                            prev.map((a) =>
+                                a.name === parsed.agent
+                                    ? {
+                                        ...a,
+                                        status: parsed.status,
+                                        ...(parsed.duration !== undefined && { duration: parsed.duration }),
+                                        ...(parsed.attempts !== undefined && { attempts: parsed.attempts }),
+                                        ...(parsed.confidence !== undefined && { confidence: parsed.confidence }),
+                                        ...(parsed.tokens !== undefined && { tokens: parsed.tokens }),
+                                        ...(parsed.cost !== undefined && { cost: parsed.cost }),
+                                    }
+                                    : a
+                            )
+                        );
+                    } catch (e) {
+                        console.error("Stream parse error:", e);
+                    }
+                }
+            }
+        } finally {
+            setIsRunning(false);
+            await loadProject(); // Reload artifacts and runs
+        }
+    }
+
+    async function handleResume(pipelineRunId: string) {
+        if (!projectId) return;
+
+        setIsRunning(true);
+        // Do not reset agents fully! We want to keep the completed ones visible, 
+        //, but we can set any "error" ones back to "idle"/"running" based on the stream.
+        setAgents(agents.map(a =>
+            a.status === "error" ? { ...a, status: "idle" } : a
+        ));
+
+        try {
+            const res = await fetch("/api/workflow/resume", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ pipelineRunId }),
             });
 
             const reader = res.body?.getReader();
@@ -216,6 +304,29 @@ export default function ProjectPage() {
                                     ${agents.reduce((sum, a) => sum + (Number(a.cost) || 0), 0).toFixed(4)}
                                 </span>
                             )}
+                        </div>
+                    )}
+
+                    {/* Failed Resume Badge */}
+                    {!isRunning && project.runs?.[0]?.status === "error" && (
+                        <div className="mt-4 p-4 bg-red-950/30 border border-red-900/50 rounded-xl flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                            <div>
+                                <span className="text-sm font-medium text-red-400 flex items-center gap-2">
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Pipeline Failed
+                                </span>
+                                <p className="text-sm text-red-200/70 mt-1 max-w-xl truncate">
+                                    {project.runs[0].error || "An unknown error occurred during execution."}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => handleResume(project.runs[0].id)}
+                                className="px-4 py-2 bg-red-900/40 hover:bg-red-900/60 text-red-200 border border-red-800/50 rounded-lg text-sm font-medium transition whitespace-nowrap"
+                            >
+                                Retry from {project.runs[0].currentStage || "Stage"}
+                            </button>
                         </div>
                     )}
                 </div>
